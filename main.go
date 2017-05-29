@@ -15,6 +15,7 @@ import (
 type option struct {
 	url    string
 	config string
+	out    string
 }
 
 var opt option
@@ -22,6 +23,7 @@ var opt option
 func init() {
 	flag.StringVar(&opt.url, "url", "", "")
 	flag.StringVar(&opt.config, "config", "", "")
+	flag.StringVar(&opt.out, "out", "", "")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		log.Fatal("invalid argument:", flag.Args())
@@ -40,8 +42,6 @@ func init() {
 		}
 		opt.url = strings.TrimSpace(string(b))
 	}
-
-	fmt.Println(opt.url)
 }
 
 func read(msg string) string {
@@ -74,9 +74,16 @@ func main() {
 	if !strings.HasPrefix(opt.url, "https://") && !strings.HasPrefix(opt.url, "http://") {
 		opt.url = "https://" + opt.url
 	}
+
 	b, err := getter(opt.url)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(string(b))
+
+	if opt.out != "" {
+		err = ioutil.WriteFile(opt.out, b, 0600)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
