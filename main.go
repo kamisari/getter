@@ -39,6 +39,7 @@ type option struct {
 }
 
 var opt option
+var client = &http.Client{Timeout: time.Duration(time.Second * 10)}
 
 func init() {
 	flag.StringVar(&opt.url1, "url", "", "")
@@ -124,7 +125,7 @@ func init() {
 }
 
 func getter(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}
