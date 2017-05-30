@@ -1,4 +1,7 @@
 getter
 getter.conf
 out.html
+
+*_test.go
+
 t/
