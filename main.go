@@ -60,6 +60,7 @@ func init() {
 			"etc",
 			"getter",
 			"getter.conf"}, string(os.PathSeparator))
+		log.Println("default conf:", opt.conf)
 	}
 	b, err := ioutil.ReadFile(opt.conf)
 	if err != nil {
@@ -244,6 +245,10 @@ func main() {
 				log.Fatal(err)
 			}
 			// TODO: remove it?
+			out3, err = filepath.Abs(out3)
+			if err != nil {
+				log.Fatal(err)
+			}
 			fmt.Println(out3)
 		}
 	}
