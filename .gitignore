@@ -1,8 +1,7 @@
 getter
 getter.conf
 out.html
-*.prof
 
-*_test.go
+*.prof
 
 t/
