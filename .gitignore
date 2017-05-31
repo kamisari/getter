@@ -1,7 +1,3 @@
 getter
-getter.conf
-out.html
-
 *.prof
-
 t/
