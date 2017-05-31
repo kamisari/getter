@@ -186,7 +186,7 @@ func main() {
 			}
 		}
 		duray := time.Duration(2 + rand.Int63n(3))
-		log.Println("duray:", duray)
+		log.Println("delay:", duray)
 		time.Sleep(time.Second * duray)
 	}
 
@@ -210,7 +210,7 @@ func main() {
 			log.Fatal(err)
 		}
 		duray := time.Duration(2 + rand.Int63n(3))
-		log.Println("duray:", duray)
+		log.Println("delay:", duray)
 		time.Sleep(time.Second * duray)
 	}
 
@@ -245,7 +245,6 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			// TODO: remove it?
 			out3, err = filepath.Abs(out3)
 			if err != nil {
 				log.Fatal(err)
