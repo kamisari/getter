@@ -80,7 +80,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	confList := strings.SplitAfter(strings.TrimSpace(string(b)), "\n")
+	confList := strings.Split(strings.TrimSpace(string(b)), "\n")
 	for _, s := range confList {
 		switch {
 		case strings.HasPrefix(s, "depth="):
