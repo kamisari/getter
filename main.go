@@ -12,26 +12,32 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"golang.org/x/net/html"
 )
 
+const version = "0.0.0"
+
 type option struct {
-	conf string
+	conf    string
+	version bool
+	// TODO: impl depth
+	depth uint
 
 	/// TODO: be graceful
 
-	url1   string
-	out1   string
-	telem1 string
-	tattr1 string
+	url1  string
+	out1  string
+	elem1 string
+	attr1 string
 
-	url2   string
-	out2   string
-	telem2 string
-	tattr2 string
+	url2  string
+	out2  string
+	elem2 string
+	attr2 string
 
 	url3    string
 	grep3   string
@@ -42,14 +48,21 @@ type option struct {
 var opt option
 
 func init() {
+	flag.BoolVar(&opt.version, "version", false, "")
 	flag.StringVar(&opt.url1, "url", "", "")
 	flag.StringVar(&opt.out1, "out", "", "")
-	flag.StringVar(&opt.telem1, "telem", "", "")
-	flag.StringVar(&opt.tattr1, "tattr", "", "")
+	flag.StringVar(&opt.elem1, "elem", "", "")
+	flag.StringVar(&opt.attr1, "attr", "", "")
 	flag.StringVar(&opt.conf, "conf", "", "")
+	// TODO: impl depth
+	flag.UintVar(&opt.depth, "depth", 0, "")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		log.Fatal("invalid argument:", flag.Args())
+	}
+	if opt.version {
+		fmt.Printf("version %s\n", version)
+		os.Exit(0)
 	}
 	if opt.conf == "" {
 		u, err := user.Current()
@@ -70,6 +83,15 @@ func init() {
 	confList := strings.SplitAfter(strings.TrimSpace(string(b)), "\n")
 	for _, s := range confList {
 		switch {
+		case strings.HasPrefix(s, "depth="):
+			// TODO: impl
+			if opt.depth == 0 {
+				i, err := strconv.Atoi(s)
+				if err != nil || i <= 0 {
+					continue
+				}
+				opt.depth = uint(i)
+			}
 		case strings.HasPrefix(s, "url1="):
 			if opt.url1 == "" {
 				opt.url1 = strings.TrimSpace(strings.TrimPrefix(s, "url1="))
@@ -78,13 +100,13 @@ func init() {
 			if opt.out1 == "" {
 				opt.out1 = strings.TrimSpace(strings.TrimPrefix(s, "out1="))
 			}
-		case strings.HasPrefix(s, "telem1="):
-			if opt.telem1 == "" {
-				opt.telem1 = strings.TrimSpace(strings.TrimPrefix(s, "telem1="))
+		case strings.HasPrefix(s, "elem1="):
+			if opt.elem1 == "" {
+				opt.elem1 = strings.TrimSpace(strings.TrimPrefix(s, "elem1="))
 			}
-		case strings.HasPrefix(s, "tattr1="):
-			if opt.tattr1 == "" {
-				opt.tattr1 = strings.TrimSpace(strings.TrimPrefix(s, "tattr1="))
+		case strings.HasPrefix(s, "attr1="):
+			if opt.attr1 == "" {
+				opt.attr1 = strings.TrimSpace(strings.TrimPrefix(s, "attr1="))
 			}
 
 		case strings.HasPrefix(s, "url2="):
@@ -95,13 +117,13 @@ func init() {
 			if opt.out2 == "" {
 				opt.out2 = strings.TrimSpace(strings.TrimPrefix(s, "out2="))
 			}
-		case strings.HasPrefix(s, "telem2="):
-			if opt.telem2 == "" {
-				opt.telem2 = strings.TrimSpace(strings.TrimPrefix(s, "telem2="))
+		case strings.HasPrefix(s, "elem2="):
+			if opt.elem2 == "" {
+				opt.elem2 = strings.TrimSpace(strings.TrimPrefix(s, "elem2="))
 			}
-		case strings.HasPrefix(s, "tattr2="):
-			if opt.tattr2 == "" {
-				opt.tattr2 = strings.TrimSpace(strings.TrimPrefix(s, "tattr2="))
+		case strings.HasPrefix(s, "attr2="):
+			if opt.attr2 == "" {
+				opt.attr2 = strings.TrimSpace(strings.TrimPrefix(s, "attr2="))
 			}
 
 		case strings.HasPrefix(s, "url3="):
@@ -143,13 +165,13 @@ func getter(url string) ([]byte, error) {
 	log.Println("proto:", resp.Proto)
 	log.Println("request:", resp.Request)
 	log.Println("status:", resp.Status)
-	log.Println("TLS Mutual:", resp.TLS.NegotiatedProtocolIsMutual)
-	log.Println("TLS HandshakeComplete:", resp.TLS.HandshakeComplete)
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	if resp.TLS != nil {
+		log.Println("TLS Mutual:", resp.TLS.NegotiatedProtocolIsMutual)
+		log.Println("TLS HandshakeComplete:", resp.TLS.HandshakeComplete)
+	} else {
+		log.Println("TLS is nil")
 	}
-	return b, nil
+	return ioutil.ReadAll(resp.Body)
 }
 func getValues(b []byte, targetElem, targetAttr string) ([]string, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
@@ -187,48 +209,55 @@ func main() {
 	if opt.url1 != "" {
 		log.SetPrefix("[1] ")
 		log.Println("GET:", opt.url1)
-		if b, err = getter(opt.url1); err != nil {
-			log.Fatal(err)
-		}
-		values, err = getValues(b, opt.telem1, opt.tattr1)
+		b, err = getter(opt.url1)
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Println("values:", values)
-		log.Println("outfile:", opt.out1)
+		if opt.elem1 != "" && opt.attr1 != "" {
+			values, err = getValues(b, opt.elem1, opt.attr1)
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Println("values:", values)
+		}
 		if opt.out1 != "" {
 			err = ioutil.WriteFile(opt.out1, b, 0600)
 			if err != nil {
 				log.Fatal(err)
 			}
+			log.Println("outfile:", opt.out1)
 		}
-		duray := time.Duration(2 + rand.Int63n(3))
-		log.Println("delay:", duray)
-		time.Sleep(time.Second * duray)
+		delay := time.Duration(2 + rand.Int63n(3))
+		log.Println("delay:", delay)
+		time.Sleep(time.Second * delay)
 	}
 
 	// url2
 	if opt.url2 != "" && len(values) != 0 {
-		log.SetPrefix("[2] ")
 		url := opt.url2 + "/" + values[0]
+		log.SetPrefix("[2] ")
 		log.Println("GET:", url)
 		b, err = getter(url)
 		if err != nil {
 			log.Fatal(err)
 		}
-		values, err = getValues(b, opt.telem2, opt.tattr2)
-		if err != nil {
-			log.Fatal(err)
+		if opt.elem2 != "" && opt.attr2 != "" {
+			values, err = getValues(b, opt.elem2, opt.attr2)
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Println("values:", values)
 		}
-		log.Println("values:", values)
-		log.Println("outfile:", opt.out2)
-		err = ioutil.WriteFile(opt.out2, b, 0600)
-		if err != nil {
-			log.Fatal(err)
+		if opt.out2 != "" {
+			err = ioutil.WriteFile(opt.out2, b, 0600)
+			if err != nil {
+				log.Fatal(err)
+			}
+			log.Println("outfile:", opt.out2)
 		}
-		duray := time.Duration(2 + rand.Int63n(3))
-		log.Println("delay:", duray)
-		time.Sleep(time.Second * duray)
+		delay := time.Duration(2 + rand.Int63n(3))
+		log.Println("delay:", delay)
+		time.Sleep(time.Second * delay)
 	}
 
 	// url3

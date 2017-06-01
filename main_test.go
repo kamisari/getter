@@ -5,8 +5,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 )
+
+var testURL string
 
 var mockHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "hello from mock handler")
@@ -17,6 +21,16 @@ var mockHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) 
 	fmt.Println("request:", r.RequestURI)
 	fmt.Println("tls:", r.TLS)
 })
+
+func TestMain(m *testing.M) {
+	b, err := ioutil.ReadFile("./t/testURL.txt")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	testURL = strings.TrimSpace(string(b))
+	os.Exit(m.Run())
+}
 
 func TestGetter(t *testing.T) {
 	ts := httptest.NewServer(mockHandler)
@@ -45,7 +59,7 @@ func TestGetterHTTPS(t *testing.T) {
 
 func TestGetterHTTPSServer(t *testing.T) {
 	// TODO:
-	_, err := getter("")
+	_, err := getter(testURL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +67,7 @@ func TestGetterHTTPSServer(t *testing.T) {
 
 func TestDefaultHTTPClient(t *testing.T) {
 	// TODO:
-	resp, err := http.Get("")
+	resp, err := http.Get(testURL)
 	if err != nil {
 		t.Fatal(err)
 	}
