@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -39,7 +40,6 @@ type option struct {
 }
 
 var opt option
-var client = &http.Client{Timeout: time.Duration(time.Second * 10)}
 
 func init() {
 	flag.StringVar(&opt.url1, "url", "", "")
@@ -124,12 +124,27 @@ func init() {
 	}
 }
 
+// TODO: be graceful
 func getter(url string) ([]byte, error) {
-	resp, err := client.Get(url)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	log.Println("http header", resp.Trailer)
+	log.Println("header:", resp.Header)
+	log.Println("proto:", resp.Proto)
+	log.Println("request:", resp.Request)
+	log.Println("status:", resp.Status)
+	log.Println("TLS Mutual:", resp.TLS.NegotiatedProtocolIsMutual)
+	log.Println("TLS HandshakeComplete:", resp.TLS.HandshakeComplete)
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -165,6 +180,8 @@ func main() {
 	var err error
 	rand.Seed(time.Now().UnixNano())
 	log.SetOutput(os.Stderr)
+
+	/// TODO: url1-3 be graceful
 
 	// url1
 	if opt.url1 != "" {
