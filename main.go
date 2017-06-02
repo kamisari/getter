@@ -149,7 +149,7 @@ func init() {
 
 // TODO: be graceful
 func getter(url string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
