@@ -25,6 +25,7 @@ type option struct {
 	conf    string
 	version bool
 	logdrop bool
+	logout  string
 	// TODO: impl depth
 	depth uint
 
@@ -51,6 +52,7 @@ var opt option
 func init() {
 	flag.BoolVar(&opt.version, "version", false, "")
 	flag.BoolVar(&opt.logdrop, "logdrop", false, "")
+	flag.StringVar(&opt.logout, "logout", "", "")
 	// TODO: impl depth
 	flag.UintVar(&opt.depth, "depth", 0, "")
 	flag.StringVar(&opt.url1, "url", "", "")
@@ -81,9 +83,14 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// TODO: be graceful
 	confList := strings.Split(strings.TrimSpace(string(b)), "\n")
 	for _, s := range confList {
 		switch {
+		case strings.HasPrefix(s, "logout="):
+			if opt.logout == "" {
+				opt.logout = strings.TrimSpace(strings.TrimPrefix(s, "logout="))
+			}
 		case strings.HasPrefix(s, "depth="):
 			// TODO: impl
 			if opt.depth == 0 {
@@ -198,18 +205,25 @@ func getValues(b []byte, targetElem, targetAttr string) ([]string, error) {
 }
 
 func main() {
-	var b []byte
-	var values []string
-	var err error
-	rand.Seed(time.Now().UnixNano())
-	if opt.logdrop {
+	switch {
+	case opt.logdrop:
 		log.SetOutput(ioutil.Discard)
-	} else {
+	case opt.logout != "":
+		logfile, err := os.OpenFile(opt.logout, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.SetOutput(logfile)
+	default:
 		log.SetOutput(os.Stderr)
 	}
 	log.Println("default conf:", opt.conf)
 
 	/// TODO: url[1..3] be graceful
+	var b []byte
+	var values []string
+	var err error
+	rand.Seed(time.Now().UnixNano())
 
 	// url1
 	if opt.url1 != "" {
@@ -227,7 +241,7 @@ func main() {
 			log.Println("values:", values)
 		}
 		if opt.out1 != "" {
-			err = ioutil.WriteFile(opt.out1, b, 0600)
+			err = ioutil.WriteFile(opt.out1, b, 0666)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -255,7 +269,7 @@ func main() {
 			log.Println("values:", values)
 		}
 		if opt.out2 != "" {
-			err = ioutil.WriteFile(opt.out2, b, 0600)
+			err = ioutil.WriteFile(opt.out2, b, 0666)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -293,7 +307,7 @@ func main() {
 		}
 		if out3 != "" {
 			log.Println("outfile:", out3)
-			err = ioutil.WriteFile(out3, b, 0600)
+			err = ioutil.WriteFile(out3, b, 0666)
 			if err != nil {
 				log.Fatal(err)
 			}
