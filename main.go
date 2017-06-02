@@ -24,6 +24,7 @@ const version = "0.0.0"
 type option struct {
 	conf    string
 	version bool
+	logdrop bool
 	// TODO: impl depth
 	depth uint
 
@@ -49,13 +50,14 @@ var opt option
 
 func init() {
 	flag.BoolVar(&opt.version, "version", false, "")
+	flag.BoolVar(&opt.logdrop, "logdrop", false, "")
+	// TODO: impl depth
+	flag.UintVar(&opt.depth, "depth", 0, "")
 	flag.StringVar(&opt.url1, "url", "", "")
 	flag.StringVar(&opt.out1, "out", "", "")
 	flag.StringVar(&opt.elem1, "elem", "", "")
 	flag.StringVar(&opt.attr1, "attr", "", "")
 	flag.StringVar(&opt.conf, "conf", "", "")
-	// TODO: impl depth
-	flag.UintVar(&opt.depth, "depth", 0, "")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		log.Fatal("invalid argument:", flag.Args())
@@ -74,7 +76,6 @@ func init() {
 			"etc",
 			"getter",
 			"getter.conf"}, string(os.PathSeparator))
-		log.Println("default conf:", opt.conf)
 	}
 	b, err := ioutil.ReadFile(opt.conf)
 	if err != nil {
@@ -201,9 +202,14 @@ func main() {
 	var values []string
 	var err error
 	rand.Seed(time.Now().UnixNano())
-	log.SetOutput(os.Stderr)
+	if opt.logdrop {
+		log.SetOutput(ioutil.Discard)
+	} else {
+		log.SetOutput(os.Stderr)
+	}
+	log.Println("default conf:", opt.conf)
 
-	/// TODO: url1-3 be graceful
+	/// TODO: url[1..3] be graceful
 
 	// url1
 	if opt.url1 != "" {
