@@ -178,9 +178,11 @@ func (c *crawl) do() (string, error) {
 		default:
 			value = ""
 		}
-		delay := time.Duration(10 + rand.Int63n(10))
-		logger.Println("delay:", delay)
-		time.Sleep(time.Second * delay)
+		if i+1 != len(c.infos) {
+			delay := time.Duration(10 + rand.Int63n(10))
+			logger.Println("delay:", delay)
+			time.Sleep(time.Second * delay)
+		}
 	}
 	return lastWrite, nil
 }
