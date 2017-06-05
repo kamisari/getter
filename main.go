@@ -32,7 +32,7 @@ var defconf = func() string {
 		"dotfiles",
 		"etc",
 		"getter",
-		"getter.conf")
+		"conf.json")
 }()
 
 // default discard
