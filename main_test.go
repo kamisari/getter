@@ -30,11 +30,10 @@ var mockHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) 
 
 func TestMain(m *testing.M) {
 	opt.conf = ""
-	opt.logdrop = true
 	os.Exit(m.Run())
 }
 
-func TestGetter(t *testing.T) {
+func TestGetter_HTTP(t *testing.T) {
 	ts := httptest.NewServer(mockHandler)
 	defer ts.Close()
 	b, err := getter(ts.URL)
@@ -53,6 +52,7 @@ func TestGetter_HTTPS(t *testing.T) {
 	ts := httptest.NewTLSServer(mockHandler)
 	defer ts.Close()
 	b, err := getter(ts.URL)
+	// fatal check
 	if err == nil {
 		t.Fatal("expected certificate error but nil")
 	}
@@ -60,10 +60,25 @@ func TestGetter_HTTPS(t *testing.T) {
 	t.Logf("return string([]byte): %+v\n", string(b))
 }
 
+// TODO: fatal check
+func TestGetValues(t *testing.T) {
+	values, err := getValues([]byte(page), "meta", "charset")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 1 {
+		t.Fatalf("unexpected values: %+v", values)
+	}
+	if values[0] != "utf-8" {
+		t.Fatalf("expected: utf-8 but %+v", values[0])
+	}
+}
+
 // TODO: certificate error
 func TestRun(t *testing.T) {
 	var s string
 	buf := bytes.NewBufferString(s)
+	// fatal check
 	if err := run(buf); err == nil {
 		t.Error(buf)
 		t.Fatal("expected err but nil")
@@ -75,8 +90,8 @@ func TestRun(t *testing.T) {
 	jsondata := []byte(`[
   {
     "url": "` + ts.URL + `",
-    "elem": "",
-    "attr": "",
+    "elem": "meta",
+    "attr": "char-set",
     "grep": "",
     "out": "",
     "outdir": ""
@@ -90,14 +105,18 @@ func TestRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	opt.conf = f.Name()
+	// fatal check certificate error
 	if err := run(buf); err == nil {
-		// TODO: certificate error
 		t.Error("out put:", buf)
 		t.Fatal("expected error but nil")
 	}
 	t.Log("output:", buf)
+
+	// TODO: sanity check
+	//     : implement tls server or skip certificate check
 }
 
+// TODO: implementation
 func TestCrawl_Do(t *testing.T) {
 }
 
