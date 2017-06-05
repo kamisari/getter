@@ -22,6 +22,7 @@ var mockHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) 
 })
 
 func TestMain(m *testing.M) {
+	opt.conf = ""
 	os.Exit(m.Run())
 }
 

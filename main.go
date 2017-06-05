@@ -23,6 +23,18 @@ import (
 const version = "0.0.0"
 const logprefix = "getter "
 
+var defconf = func() string {
+	u, err := user.Current()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(u.HomeDir,
+		"dotfiles",
+		"etc",
+		"getter",
+		"getter.conf")
+}()
+
 // default discard
 var logger = log.New(ioutil.Discard, logprefix, log.LstdFlags)
 
@@ -36,8 +48,19 @@ type option struct {
 
 var opt option
 
+func init() {
+	flag.BoolVar(&opt.version, "version", false, "")
+	flag.BoolVar(&opt.logdrop, "logdrop", false, "log dropout")
+	flag.StringVar(&opt.conf, "conf", defconf, "specify path to configuration json file")
+	flag.StringVar(&opt.logfile, "logfile", "", "specify path to output log file")
+	flag.BoolVar(&opt.template, "template", false, "output template configuration json file")
+	flag.Parse()
+	if flag.NArg() != 0 {
+		log.Fatalf("invalid argument:%+v", flag.Args())
+	}
+}
+
 func getter(url string) ([]byte, error) {
-	logger.Println("URL:" + url)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	req, err := http.NewRequest("GET", url, nil)
@@ -70,12 +93,12 @@ func getValues(b []byte, targetElem, targetAttr string) ([]string, error) {
 		return nil, err
 	}
 	var f func(*html.Node)
-	var valuse []string
+	var values []string
 	f = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == targetElem {
 			for _, v := range n.Attr {
 				if v.Key == targetAttr {
-					valuse = append(valuse, v.Val)
+					values = append(values, v.Val)
 				}
 			}
 		}
@@ -84,7 +107,7 @@ func getValues(b []byte, targetElem, targetAttr string) ([]string, error) {
 		}
 	}
 	f(doc)
-	return valuse, nil
+	return values, nil
 }
 
 // json info
@@ -112,8 +135,10 @@ func (c *crawl) do() (string, error) {
 		logger.SetPrefix(fmt.Sprintf(logprefix+"[%v]: ", i))
 		url = info.URL
 		if value != "" {
+			logger.Println("join value:", value)
 			url = url + "/" + value
 		}
+		logger.Println("GET URL:" + url)
 		b, err := getter(url)
 		if err != nil {
 			return "", err
@@ -152,7 +177,6 @@ func (c *crawl) do() (string, error) {
 		default:
 			value = ""
 		}
-		logger.Println("value:", value)
 		delay := time.Duration(10 + rand.Int63n(10))
 		logger.Println("delay:", delay)
 		time.Sleep(time.Second * delay)
@@ -161,15 +185,6 @@ func (c *crawl) do() (string, error) {
 }
 
 func run(w io.Writer) error {
-	flag.BoolVar(&opt.version, "version", false, "")
-	flag.BoolVar(&opt.logdrop, "logdrop", false, "log dropout")
-	flag.StringVar(&opt.conf, "conf", "", "specify path to configuration json file")
-	flag.StringVar(&opt.logfile, "logfile", "", "specify path to output log file")
-	flag.BoolVar(&opt.template, "template", false, "output template configuration json file")
-	flag.Parse()
-	if flag.NArg() != 0 {
-		return fmt.Errorf("invalid argument:%+v", flag.Args())
-	}
 	if opt.version {
 		fmt.Fprintf(w, "version %s\n", version)
 		return nil
@@ -207,17 +222,6 @@ func run(w io.Writer) error {
 		logger.SetOutput(logfile)
 	default:
 		logger.SetOutput(os.Stderr)
-	}
-	if opt.conf == "" {
-		u, err := user.Current()
-		if err != nil {
-			return err
-		}
-		opt.conf = strings.Join([]string{u.HomeDir,
-			"dotfiles",
-			"etc",
-			"getter",
-			"getter.conf"}, string(os.PathSeparator))
 	}
 	logger.Println("conf:", opt.conf)
 	b, err := ioutil.ReadFile(opt.conf)
