@@ -25,6 +25,7 @@ const page = `
 `
 
 var mockHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprintf(w, "%s", page)
 })
 
