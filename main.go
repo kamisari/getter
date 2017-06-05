@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -12,7 +14,6 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -20,142 +21,23 @@ import (
 )
 
 const version = "0.0.0"
+const logprefix = "getter "
+
+// default discard
+var logger = log.New(ioutil.Discard, logprefix, log.LstdFlags)
 
 type option struct {
-	conf    string
-	version bool
-	logdrop bool
-	logout  string
-	// TODO: impl depth
-	depth uint
-
-	/// TODO: be graceful
-
-	url1  string
-	out1  string
-	elem1 string
-	attr1 string
-
-	url2  string
-	out2  string
-	elem2 string
-	attr2 string
-
-	url3    string
-	grep3   string
-	out3    string // have priority
-	outdir3 string
+	conf     string
+	version  bool
+	logdrop  bool
+	logfile  string
+	template bool
 }
 
 var opt option
 
-func init() {
-	flag.BoolVar(&opt.version, "version", false, "")
-	flag.BoolVar(&opt.logdrop, "logdrop", false, "")
-	flag.StringVar(&opt.logout, "logout", "", "")
-	// TODO: impl depth
-	flag.UintVar(&opt.depth, "depth", 0, "")
-	flag.StringVar(&opt.url1, "url", "", "")
-	flag.StringVar(&opt.out1, "out", "", "")
-	flag.StringVar(&opt.elem1, "elem", "", "")
-	flag.StringVar(&opt.attr1, "attr", "", "")
-	flag.StringVar(&opt.conf, "conf", "", "")
-	flag.Parse()
-	if flag.NArg() != 0 {
-		log.Fatal("invalid argument:", flag.Args())
-	}
-	if opt.version {
-		fmt.Printf("version %s\n", version)
-		os.Exit(0)
-	}
-	if opt.conf == "" {
-		u, err := user.Current()
-		if err != nil {
-			log.Fatal(err)
-		}
-		opt.conf = strings.Join([]string{u.HomeDir,
-			"dotfiles",
-			"etc",
-			"getter",
-			"getter.conf"}, string(os.PathSeparator))
-	}
-	b, err := ioutil.ReadFile(opt.conf)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// TODO: be graceful
-	confList := strings.Split(strings.TrimSpace(string(b)), "\n")
-	for _, s := range confList {
-		switch {
-		case strings.HasPrefix(s, "logout="):
-			if opt.logout == "" {
-				opt.logout = strings.TrimSpace(strings.TrimPrefix(s, "logout="))
-			}
-		case strings.HasPrefix(s, "depth="):
-			// TODO: impl
-			if opt.depth == 0 {
-				i, err := strconv.Atoi(s)
-				if err != nil || i <= 0 {
-					continue
-				}
-				opt.depth = uint(i)
-			}
-		case strings.HasPrefix(s, "url1="):
-			if opt.url1 == "" {
-				opt.url1 = strings.TrimSpace(strings.TrimPrefix(s, "url1="))
-			}
-		case strings.HasPrefix(s, "out1="):
-			if opt.out1 == "" {
-				opt.out1 = strings.TrimSpace(strings.TrimPrefix(s, "out1="))
-			}
-		case strings.HasPrefix(s, "elem1="):
-			if opt.elem1 == "" {
-				opt.elem1 = strings.TrimSpace(strings.TrimPrefix(s, "elem1="))
-			}
-		case strings.HasPrefix(s, "attr1="):
-			if opt.attr1 == "" {
-				opt.attr1 = strings.TrimSpace(strings.TrimPrefix(s, "attr1="))
-			}
-
-		case strings.HasPrefix(s, "url2="):
-			if opt.url2 == "" {
-				opt.url2 = strings.TrimSpace(strings.TrimPrefix(s, "url2="))
-			}
-		case strings.HasPrefix(s, "out2="):
-			if opt.out2 == "" {
-				opt.out2 = strings.TrimSpace(strings.TrimPrefix(s, "out2="))
-			}
-		case strings.HasPrefix(s, "elem2="):
-			if opt.elem2 == "" {
-				opt.elem2 = strings.TrimSpace(strings.TrimPrefix(s, "elem2="))
-			}
-		case strings.HasPrefix(s, "attr2="):
-			if opt.attr2 == "" {
-				opt.attr2 = strings.TrimSpace(strings.TrimPrefix(s, "attr2="))
-			}
-
-		case strings.HasPrefix(s, "url3="):
-			if opt.url3 == "" {
-				opt.url3 = strings.TrimSpace(strings.TrimPrefix(s, "url3="))
-			}
-		case strings.HasPrefix(s, "grep3="):
-			if opt.grep3 == "" {
-				opt.grep3 = strings.TrimSpace(strings.TrimPrefix(s, "grep3="))
-			}
-		case strings.HasPrefix(s, "out3="):
-			if opt.out3 == "" {
-				opt.out3 = strings.TrimSpace(strings.TrimPrefix(s, "out3="))
-			}
-		case strings.HasPrefix(s, "outdir3="):
-			if opt.outdir3 == "" {
-				opt.outdir3 = strings.TrimSpace(strings.TrimPrefix(s, "outdir3="))
-			}
-		}
-	}
-}
-
-// TODO: be graceful
 func getter(url string) ([]byte, error) {
+	logger.Println("URL:" + url)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	req, err := http.NewRequest("GET", url, nil)
@@ -168,19 +50,20 @@ func getter(url string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	log.Println("http header", resp.Trailer)
-	log.Println("header:", resp.Header)
-	log.Println("proto:", resp.Proto)
-	log.Println("request:", resp.Request)
-	log.Println("status:", resp.Status)
+	logger.Printf("http header Trailer:%+v\n", resp.Trailer)
+	logger.Println("header:", resp.Header)
+	logger.Println("proto:", resp.Proto)
+	logger.Println("request:", resp.Request)
+	logger.Println("status:", resp.Status)
 	if resp.TLS != nil {
-		log.Println("TLS Mutual:", resp.TLS.NegotiatedProtocolIsMutual)
-		log.Println("TLS HandshakeComplete:", resp.TLS.HandshakeComplete)
+		logger.Println("TLS Mutual:", resp.TLS.NegotiatedProtocolIsMutual)
+		logger.Println("TLS HandshakeComplete:", resp.TLS.HandshakeComplete)
 	} else {
-		log.Println("TLS is nil")
+		logger.Println("TLS is nil")
 	}
 	return ioutil.ReadAll(resp.Body)
 }
+
 func getValues(b []byte, targetElem, targetAttr string) ([]string, error) {
 	doc, err := html.Parse(bytes.NewReader(b))
 	if err != nil {
@@ -204,118 +87,157 @@ func getValues(b []byte, targetElem, targetAttr string) ([]string, error) {
 	return valuse, nil
 }
 
-func main() {
+// json info
+type crawlInfo struct {
+	URL    string `json:"url"`
+	Elem   string `json:"elem"`
+	Attr   string `json:"attr"`
+	Grep   string `json:"grep"`
+	Out    string `json:"out"`
+	Outdir string `json:"outdir"`
+}
+
+type crawl struct {
+	infos []crawlInfo
+	// TODO: add logger?
+}
+
+// TODO: be graceful
+func (c *crawl) do() (string, error) {
+	rand.Seed(time.Now().UnixNano())
+	var value string
+	var lastWrite string
+	var url string
+	for i, info := range c.infos {
+		logger.SetPrefix(fmt.Sprintf(logprefix+"[%v]: ", i))
+		url = info.URL
+		if value != "" {
+			url = url + "/" + value
+		}
+		b, err := getter(url)
+		if err != nil {
+			return "", err
+		}
+		switch {
+		case info.Out != "":
+			if err = ioutil.WriteFile(info.Out, b, 0666); err != nil {
+				return "", err
+			}
+			lastWrite = info.Out
+		case info.Outdir != "":
+			fpath := filepath.Join(info.Outdir, filepath.Base(url))
+			if err = ioutil.WriteFile(fpath, b, 0666); err != nil {
+				return "", err
+			}
+			lastWrite = fpath
+		}
+		var values []string
+		if info.Elem != "" && info.Attr != "" {
+			values, err = getValues(b, info.Elem, info.Attr)
+			if err != nil {
+				return "", err
+			}
+		}
+		logger.Println("values:", values)
+		switch {
+		case info.Grep != "":
+			for _, v := range values {
+				if strings.Contains(v, info.Grep) {
+					value = filepath.Base(v)
+					break
+				}
+			}
+		case len(values) != 0:
+			value = values[0]
+		default:
+			value = ""
+		}
+		logger.Println("value:", value)
+		delay := time.Duration(10 + rand.Int63n(10))
+		logger.Println("delay:", delay)
+		time.Sleep(time.Second * delay)
+	}
+	return lastWrite, nil
+}
+
+func run(w io.Writer) error {
+	flag.BoolVar(&opt.version, "version", false, "")
+	flag.BoolVar(&opt.logdrop, "logdrop", false, "log dropout")
+	flag.StringVar(&opt.conf, "conf", "", "specify path to configuration json file")
+	flag.StringVar(&opt.logfile, "logfile", "", "specify path to output log file")
+	flag.BoolVar(&opt.template, "template", false, "output template configuration json file")
+	flag.Parse()
+	if flag.NArg() != 0 {
+		return fmt.Errorf("invalid argument:%+v", flag.Args())
+	}
+	if opt.version {
+		fmt.Fprintf(w, "version %s\n", version)
+		return nil
+	}
+	if opt.template {
+		templInfos := []crawlInfo{
+			{
+				URL:    "https://",
+				Elem:   "specify search of element for next get",
+				Attr:   "specify search of attribute for next get",
+				Grep:   "specify grep word for pick the value, is join next url",
+				Out:    "/path/to/out/file",
+				Outdir: "/path/to/out/dir/",
+			},
+			{
+				URL: "specify final get url",
+				Out: "specify final output",
+			},
+		}
+		b, err := json.MarshalIndent(templInfos, "", "  ")
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(w, string(b))
+		return nil
+	}
 	switch {
 	case opt.logdrop:
-		log.SetOutput(ioutil.Discard)
-	case opt.logout != "":
-		logfile, err := os.OpenFile(opt.logout, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
+		logger.SetOutput(ioutil.Discard)
+	case opt.logfile != "":
+		logfile, err := os.OpenFile(opt.logfile, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-		log.SetOutput(logfile)
+		logger.SetOutput(logfile)
 	default:
-		log.SetOutput(os.Stderr)
+		logger.SetOutput(os.Stderr)
 	}
-	log.Println("default conf:", opt.conf)
-
-	/// TODO: url[1..3] be graceful
-	var b []byte
-	var values []string
-	var err error
-	rand.Seed(time.Now().UnixNano())
-
-	// url1
-	if opt.url1 != "" {
-		log.SetPrefix("[1] ")
-		log.Println("GET:", opt.url1)
-		b, err = getter(opt.url1)
+	if opt.conf == "" {
+		u, err := user.Current()
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
-		if opt.elem1 != "" && opt.attr1 != "" {
-			values, err = getValues(b, opt.elem1, opt.attr1)
-			if err != nil {
-				log.Fatal(err)
-			}
-			log.Println("values:", values)
-		}
-		if opt.out1 != "" {
-			err = ioutil.WriteFile(opt.out1, b, 0666)
-			if err != nil {
-				log.Fatal(err)
-			}
-			log.Println("outfile:", opt.out1)
-		}
-		delay := time.Duration(2 + rand.Int63n(3))
-		log.Println("delay:", delay)
-		time.Sleep(time.Second * delay)
+		opt.conf = strings.Join([]string{u.HomeDir,
+			"dotfiles",
+			"etc",
+			"getter",
+			"getter.conf"}, string(os.PathSeparator))
 	}
-
-	// url2
-	if opt.url2 != "" && len(values) != 0 {
-		url := opt.url2 + "/" + values[0]
-		log.SetPrefix("[2] ")
-		log.Println("GET:", url)
-		b, err = getter(url)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if opt.elem2 != "" && opt.attr2 != "" {
-			values, err = getValues(b, opt.elem2, opt.attr2)
-			if err != nil {
-				log.Fatal(err)
-			}
-			log.Println("values:", values)
-		}
-		if opt.out2 != "" {
-			err = ioutil.WriteFile(opt.out2, b, 0666)
-			if err != nil {
-				log.Fatal(err)
-			}
-			log.Println("outfile:", opt.out2)
-		}
-		delay := time.Duration(2 + rand.Int63n(3))
-		log.Println("delay:", delay)
-		time.Sleep(time.Second * delay)
+	logger.Println("conf:", opt.conf)
+	b, err := ioutil.ReadFile(opt.conf)
+	if err != nil {
+		return err
 	}
+	c := new(crawl)
+	if err := json.Unmarshal(b, &c.infos); err != nil {
+		return err
+	}
+	outpath, err := c.do()
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(w, outpath)
+	return nil
+}
 
-	// url3
-	if opt.url3 != "" && len(values) != 0 {
-		log.SetPrefix("[3] ")
-		log.Println("url:", opt.url3)
-		out3 := ""
-		for _, v := range values {
-			if strings.Contains(v, opt.grep3) {
-				url := opt.url3 + "/" + filepath.Base(v)
-				log.Println("found v:", v)
-				log.Println("GET:", url)
-				b, err = getter(url)
-				if err != nil {
-					log.Fatal(err)
-				}
-				switch {
-				case opt.outdir3 != "":
-					out3 = filepath.Join(opt.outdir3, filepath.Base(v))
-				case opt.out3 != "":
-					out3 = opt.out3
-				default:
-					log.Println("output not specified")
-				}
-				break
-			}
-		}
-		if out3 != "" {
-			log.Println("outfile:", out3)
-			err = ioutil.WriteFile(out3, b, 0666)
-			if err != nil {
-				log.Fatal(err)
-			}
-			out3, err = filepath.Abs(out3)
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Println(out3)
-		}
+func main() {
+	if err := run(os.Stdout); err != nil {
+		log.Fatal(err)
 	}
 }

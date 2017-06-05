@@ -1,41 +1,34 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 )
 
-var testURL string
-
+var mockT *testing.T
 var mockHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "hello from mock handler")
-	fmt.Println("on mock handler")
-	fmt.Println("header:", r.Header)
-	fmt.Println("proto:", r.Proto)
-	fmt.Println("host:", r.Host)
-	fmt.Println("request:", r.RequestURI)
-	fmt.Println("tls:", r.TLS)
+	const from = "from mock handler:"
+	mockT.Log(from, "header:", r.Header)
+	mockT.Log(from, "proto:", r.Proto)
+	mockT.Log(from, "host:", r.Host)
+	mockT.Log(from, "request:", r.RequestURI)
+	mockT.Log(from, "tls:", r.TLS)
 })
 
 func TestMain(m *testing.M) {
-	b, err := ioutil.ReadFile("./t/testURL.txt")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	testURL = strings.TrimSpace(string(b))
 	os.Exit(m.Run())
 }
 
 func TestGetter(t *testing.T) {
+	mockT = t
 	ts := httptest.NewServer(mockHandler)
 	defer ts.Close()
-
 	b, err := getter(ts.URL)
 	if err != nil {
 		t.Fatal(err)
@@ -46,38 +39,75 @@ func TestGetter(t *testing.T) {
 	t.Logf("%+v\n", string(b))
 }
 
-func TestGetterHTTPS(t *testing.T) {
+func TestGetter_HTTPS(t *testing.T) {
+	mockT = t
 	ts := httptest.NewTLSServer(mockHandler)
 	defer ts.Close()
-
 	b, err := getter(ts.URL)
 	if err == nil {
-		t.Fatal("expected error but nil")
+		t.Fatal("expected certificate error but nil")
 	}
-	t.Logf("%+v\n", string(b))
+	t.Logf("error: %+v\n", err)
+	t.Logf("return string([]byte): %+v\n", string(b))
 }
 
-func TestGetterHTTPSServer(t *testing.T) {
-	// TODO:
-	_, err := getter(testURL)
+func TestRun(t *testing.T) {
+	var s string
+	buf := bytes.NewBufferString(s)
+	err := run(buf)
 	if err != nil {
+		t.Log(buf)
 		t.Fatal(err)
 	}
+	t.Log(buf)
 }
 
-func TestDefaultHTTPClient(t *testing.T) {
-	// TODO:
-	resp, err := http.Get(testURL)
+func TestCrawl_Do(t *testing.T) {
+}
+
+func TestJSON_Marshal(t *testing.T) {
+	var c = new(crawl)
+	c.infos = append(c.infos, crawlInfo{
+		URL:  "http://hello",
+		Elem: "next",
+		Attr: "dor",
+	})
+	c.infos = append(c.infos, crawlInfo{
+		URL:  "http://world",
+		Elem: "end",
+		Attr: "of",
+		Grep: "di",
+	})
+	b, err := json.MarshalIndent(c.infos, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
-	t.Log("header:", resp.Header)
-	t.Log("proto:", resp.Proto)
-	t.Log("request:", resp.Request)
-	t.Log("status:", resp.Status)
-	_, err = ioutil.ReadAll(resp.Body)
+	t.Logf("%s", b)
+}
+
+func TestJSON_Unmarshal(t *testing.T) {
+	b := []byte(`[
+  {
+    "url": "http://hello",
+    "elem": "next",
+    "attr": "dor",
+    "grep": "",
+    "out": "",
+    "outdir": ""
+  },
+  {
+    "url": "http://world",
+    "elem": "end",
+    "attr": "of",
+    "grep": "di",
+    "out": "",
+    "outdir": ""
+  }
+]`)
+	c := new(crawl)
+	err := json.Unmarshal(b, &c.infos)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Logf("%+v", c.infos)
 }
