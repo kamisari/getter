@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.1.1"
+const version = "0.1.2"
 const logprefix = "getter "
 
 var defconf = func() string {
@@ -62,9 +62,12 @@ type subcmdGetValues struct {
 var sub subcmdGetValues
 
 const subname = "getvalues" // call getValues
-// sub command GetValues output writer
+// sub command GetValues
 func (sub *subcmdGetValues) run() error {
 	b, err := ioutil.ReadFile(sub.fpath)
+	if err != nil {
+		return err
+	}
 	values, err := getValues(b, sub.elem, sub.attr)
 	if err != nil {
 		return err
@@ -232,6 +235,7 @@ func (c *crawl) do() (string, error) {
 	return lastWrite, nil
 }
 
+// TODO: be graceful
 func run(w io.Writer) error {
 	if opt.version {
 		fmt.Fprintf(w, "version %s\n", version)
