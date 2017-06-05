@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.0.0"
+const version = "0.0.1"
 const logprefix = "getter "
 
 var defconf = func() string {
