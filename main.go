@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.0.1"
+const version = "0.1.1"
 const logprefix = "getter "
 
 var defconf = func() string {
@@ -48,6 +48,33 @@ type option struct {
 
 var opt option
 
+type subcmdGetValues struct {
+	name string
+	w    io.Writer
+
+	// sub flags
+	flag  *flag.FlagSet
+	fpath string
+	elem  string
+	attr  string
+}
+
+var sub subcmdGetValues
+
+const subname = "getvalues" // call getValues
+// sub command GetValues output writer
+func (sub *subcmdGetValues) run() error {
+	b, err := ioutil.ReadFile(sub.fpath)
+	values, err := getValues(b, sub.elem, sub.attr)
+	if err != nil {
+		return err
+	}
+	for _, s := range values {
+		fmt.Fprintln(sub.w, s)
+	}
+	return nil
+}
+
 func init() {
 	flag.BoolVar(&opt.version, "version", false, "")
 	flag.BoolVar(&opt.logdrop, "logdrop", false, "log dropout")
@@ -55,9 +82,27 @@ func init() {
 	flag.StringVar(&opt.logfile, "logfile", "", "specify path to output log file")
 	flag.BoolVar(&opt.template, "template", false, "output template configuration json file")
 	flag.Parse()
-	if flag.NArg() != 0 {
+	if flag.NArg() == 0 {
+		return
+	}
+	if flag.Arg(0) != subname {
 		fmt.Fprintf(os.Stderr, "invalid argument:%+v", flag.Args())
 		os.Exit(1)
+	}
+	/// subcmd GetValues
+	sub.name = subname
+	sub.flag = flag.NewFlagSet(strings.Join(flag.Args(), " "), flag.ExitOnError)
+	sub.flag.StringVar(&sub.fpath, "file", "", "specify html file path")
+	sub.flag.StringVar(&sub.fpath, "f", "", "alias of html")
+	sub.flag.StringVar(&sub.elem, "elem", "", "specify search emlem")
+	sub.flag.StringVar(&sub.elem, "e", "", "alias of elem")
+	sub.flag.StringVar(&sub.attr, "attr", "", "specify search attribute")
+	sub.flag.StringVar(&sub.attr, "a", "", "alias of attr")
+	sub.w = os.Stdout
+	sub.flag.Parse(flag.Args()[1:])
+	if sub.flag.NArg() != 0 {
+		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v", sub.flag.Args())
+		os.Exit(2)
 	}
 }
 
@@ -245,8 +290,16 @@ func run(w io.Writer) error {
 }
 
 func main() {
-	if err := run(os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	switch {
+	case sub.name != "":
+		if err := sub.run(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+	default:
+		if err := run(os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 }
