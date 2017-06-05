@@ -22,7 +22,9 @@ import (
 
 const version = "0.1.2"
 const logprefix = "getter "
+const subname = "getvalues" // subcmdGetValues.name
 
+// option.conf = defconf
 var defconf = func() string {
 	u, err := user.Current()
 	if err != nil {
@@ -61,7 +63,6 @@ type subcmdGetValues struct {
 
 var sub subcmdGetValues
 
-const subname = "getvalues" // call getValues
 // sub command GetValues
 func (sub *subcmdGetValues) run() error {
 	b, err := ioutil.ReadFile(sub.fpath)
@@ -110,6 +111,7 @@ func init() {
 }
 
 func getter(url string) ([]byte, error) {
+	// TODO: make flag for specify time of timeout? if need then do that
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	req, err := http.NewRequest("GET", url, nil)
@@ -271,7 +273,8 @@ func run(w io.Writer) error {
 		if err != nil {
 			return err
 		}
-		//defer logfile.Close() do not close
+		// do not close
+		//defer logfile.Close()
 		logger.SetOutput(logfile)
 	default:
 		logger.SetOutput(os.Stderr)
