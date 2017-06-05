@@ -56,7 +56,8 @@ func init() {
 	flag.BoolVar(&opt.template, "template", false, "output template configuration json file")
 	flag.Parse()
 	if flag.NArg() != 0 {
-		log.Fatalf("invalid argument:%+v", flag.Args())
+		fmt.Fprintf(os.Stderr, "invalid argument:%+v", flag.Args())
+		os.Exit(1)
 	}
 }
 
@@ -219,6 +220,7 @@ func run(w io.Writer) error {
 		if err != nil {
 			return err
 		}
+		//defer logfile.Close() do not close
 		logger.SetOutput(logfile)
 	default:
 		logger.SetOutput(os.Stderr)
@@ -242,6 +244,7 @@ func run(w io.Writer) error {
 
 func main() {
 	if err := run(os.Stdout); err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }

@@ -4,44 +4,52 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 )
 
-var mockT *testing.T
+const page = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title></title>
+</head>
+<body>
+  hello mock server
+</body>
+</html>
+`
+
 var mockHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "hello from mock handler")
-	const from = "from mock handler:"
-	mockT.Log(from, "header:", r.Header)
-	mockT.Log(from, "proto:", r.Proto)
-	mockT.Log(from, "host:", r.Host)
-	mockT.Log(from, "request:", r.RequestURI)
-	mockT.Log(from, "tls:", r.TLS)
+	fmt.Fprintf(w, "%s", page)
 })
 
 func TestMain(m *testing.M) {
 	opt.conf = ""
+	opt.logdrop = true
 	os.Exit(m.Run())
 }
 
 func TestGetter(t *testing.T) {
-	mockT = t
 	ts := httptest.NewServer(mockHandler)
 	defer ts.Close()
 	b, err := getter(ts.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(b) != string("hello from mock handler\n") {
+	if string(b) != page {
 		t.Errorf("out: %+v\n", string(b))
+		t.Errorf("exp: %+v\n", page)
 	}
 	t.Logf("%+v\n", string(b))
 }
 
+// TODO: certificate error
 func TestGetter_HTTPS(t *testing.T) {
-	mockT = t
 	ts := httptest.NewTLSServer(mockHandler)
 	defer ts.Close()
 	b, err := getter(ts.URL)
@@ -52,15 +60,42 @@ func TestGetter_HTTPS(t *testing.T) {
 	t.Logf("return string([]byte): %+v\n", string(b))
 }
 
+// TODO: certificate error
 func TestRun(t *testing.T) {
 	var s string
 	buf := bytes.NewBufferString(s)
-	err := run(buf)
+	if err := run(buf); err == nil {
+		t.Error(buf)
+		t.Fatal("expected err but nil")
+	}
+	t.Log("output:", buf)
+
+	ts := httptest.NewTLSServer(mockHandler)
+	defer ts.Close()
+	jsondata := []byte(`[
+  {
+    "url": "` + ts.URL + `",
+    "elem": "",
+    "attr": "",
+    "grep": "",
+    "out": "",
+    "outdir": ""
+  }
+]`)
+	f, err := ioutil.TempFile("", "getter_test")
 	if err != nil {
-		t.Log(buf)
 		t.Fatal(err)
 	}
-	t.Log(buf)
+	if _, err := f.Write(jsondata); err != nil {
+		t.Fatal(err)
+	}
+	opt.conf = f.Name()
+	if err := run(buf); err == nil {
+		// TODO: certificate error
+		t.Error("out put:", buf)
+		t.Fatal("expected error but nil")
+	}
+	t.Log("output:", buf)
 }
 
 func TestCrawl_Do(t *testing.T) {
