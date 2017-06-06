@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.2.0"
+const version = "0.2.1"
 const logprefix = "getter "
 
 // option.conf = defconf
