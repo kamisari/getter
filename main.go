@@ -71,7 +71,7 @@ func (sub *subcmdGetValues) init(args []string) {
 	sub.w = os.Stdout
 	sub.flag.Parse(args[1:])
 	if sub.flag.NArg() != 0 {
-		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v", sub.flag.Args())
+		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v\n", sub.flag.Args())
 		os.Exit(2)
 	}
 }
@@ -153,7 +153,7 @@ func (sub *subcmdList) init(args []string) {
 	sub.flag = flag.NewFlagSet(strings.Join(args, " "), flag.ExitOnError)
 	sub.flag.Parse(args[1:])
 	if sub.flag.NArg() != 0 {
-		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v", sub.flag.Args())
+		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v\n", sub.flag.Args())
 		os.Exit(2)
 	}
 }
@@ -189,7 +189,7 @@ func init() {
 	case "list-sub":
 		subcmd = &subcmdList{}
 	default:
-		fmt.Fprintf(os.Stderr, "invalid argument:%+v", flag.Args())
+		fmt.Fprintf(os.Stderr, "invalid argument:%+v\n", flag.Args())
 		os.Exit(1)
 	}
 	if subcmd != nil {
