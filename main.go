@@ -22,7 +22,6 @@ import (
 
 const version = "0.1.2"
 const logprefix = "getter "
-const subname = "getvalues" // subcmdGetValues.name
 
 // option.conf = defconf
 var defconf = func() string {
@@ -51,8 +50,7 @@ type option struct {
 var opt option
 
 type subcmdGetValues struct {
-	name string
-	w    io.Writer
+	w io.Writer
 
 	// sub flags
 	flag  *flag.FlagSet
@@ -61,9 +59,22 @@ type subcmdGetValues struct {
 	attr  string
 }
 
-var sub subcmdGetValues
-
-// sub command GetValues
+func (sub *subcmdGetValues) init(args []string) {
+	/// subcmd GetValues
+	sub.flag = flag.NewFlagSet(strings.Join(args, " "), flag.ExitOnError)
+	sub.flag.StringVar(&sub.fpath, "file", "", "specify html file path")
+	sub.flag.StringVar(&sub.fpath, "f", "", "alias of html")
+	sub.flag.StringVar(&sub.elem, "elem", "", "specify search emlem")
+	sub.flag.StringVar(&sub.elem, "e", "", "alias of elem")
+	sub.flag.StringVar(&sub.attr, "attr", "", "specify search attribute")
+	sub.flag.StringVar(&sub.attr, "a", "", "alias of attr")
+	sub.w = os.Stdout
+	sub.flag.Parse(args[1:])
+	if sub.flag.NArg() != 0 {
+		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v", sub.flag.Args())
+		os.Exit(2)
+	}
+}
 func (sub *subcmdGetValues) run() error {
 	b, err := ioutil.ReadFile(sub.fpath)
 	if err != nil {
@@ -79,6 +90,87 @@ func (sub *subcmdGetValues) run() error {
 	return nil
 }
 
+type subcmdGet struct {
+	w    io.Writer
+	logw io.Writer
+
+	// sub flags
+	flag *flag.FlagSet
+	url  string
+	out  string
+	log  bool
+}
+
+func (sub *subcmdGet) init(args []string) {
+	/// subcmd simple Get
+	sub.flag = flag.NewFlagSet(strings.Join(args, " "), flag.ExitOnError)
+	sub.flag.StringVar(&sub.url, "url", "", "")
+	sub.flag.StringVar(&sub.out, "out", "", "")
+	sub.flag.BoolVar(&sub.log, "log", false, "")
+	sub.w = os.Stdout
+	sub.logw = os.Stderr
+	sub.flag.Parse(args[1:])
+	if sub.flag.NArg() != 0 {
+		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v", sub.flag.Args())
+		os.Exit(2)
+	}
+}
+func (sub *subcmdGet) run() error {
+	if sub.log {
+		logger.SetOutput(sub.logw)
+	}
+	b, err := getter(sub.url)
+	if err != nil {
+		return err
+	}
+	if sub.out != "" {
+		err = ioutil.WriteFile(sub.out, b, 0666)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(sub.w, sub.out)
+	} else {
+		fmt.Fprintln(sub.w, string(b))
+	}
+	return nil
+}
+
+// TODO: really need list-sub?
+var subCommandsList = []string{
+	`get`,
+	`getvalues`,
+	`list-sub`,
+}
+
+type subcmdList struct {
+	w io.Writer
+
+	flag *flag.FlagSet
+}
+
+func (sub *subcmdList) init(args []string) {
+	sub.w = os.Stdout
+	sub.flag = flag.NewFlagSet(strings.Join(args, " "), flag.ExitOnError)
+	sub.flag.Parse(args[1:])
+	if sub.flag.NArg() != 0 {
+		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v", sub.flag.Args())
+		os.Exit(2)
+	}
+}
+func (sub *subcmdList) run() error {
+	for _, s := range subCommandsList {
+		fmt.Fprintln(sub.w, s)
+	}
+	return nil
+}
+
+type subCommand interface {
+	run() error
+	init([]string)
+}
+
+var subcmd subCommand
+
 func init() {
 	flag.BoolVar(&opt.version, "version", false, "")
 	flag.BoolVar(&opt.logdrop, "logdrop", false, "log dropout")
@@ -89,24 +181,19 @@ func init() {
 	if flag.NArg() == 0 {
 		return
 	}
-	if flag.Arg(0) != subname {
+	switch flag.Arg(0) {
+	case "getvalues":
+		subcmd = &subcmdGetValues{}
+	case "get":
+		subcmd = &subcmdGet{}
+	case "list-sub":
+		subcmd = &subcmdList{}
+	default:
 		fmt.Fprintf(os.Stderr, "invalid argument:%+v", flag.Args())
 		os.Exit(1)
 	}
-	/// subcmd GetValues
-	sub.name = subname
-	sub.flag = flag.NewFlagSet(strings.Join(flag.Args(), " "), flag.ExitOnError)
-	sub.flag.StringVar(&sub.fpath, "file", "", "specify html file path")
-	sub.flag.StringVar(&sub.fpath, "f", "", "alias of html")
-	sub.flag.StringVar(&sub.elem, "elem", "", "specify search emlem")
-	sub.flag.StringVar(&sub.elem, "e", "", "alias of elem")
-	sub.flag.StringVar(&sub.attr, "attr", "", "specify search attribute")
-	sub.flag.StringVar(&sub.attr, "a", "", "alias of attr")
-	sub.w = os.Stdout
-	sub.flag.Parse(flag.Args()[1:])
-	if sub.flag.NArg() != 0 {
-		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v", sub.flag.Args())
-		os.Exit(2)
+	if subcmd != nil {
+		subcmd.init(flag.Args())
 	}
 }
 
@@ -125,13 +212,13 @@ func getter(url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	logger.Printf("http header Trailer:%+v\n", resp.Trailer)
-	logger.Println("header:", resp.Header)
-	logger.Println("proto:", resp.Proto)
-	logger.Println("request:", resp.Request)
-	logger.Println("status:", resp.Status)
+	logger.Printf("header:%+v\n", resp.Header)
+	logger.Printf("proto:%+v\n", resp.Proto)
+	logger.Printf("request:%+v\n", resp.Request)
+	logger.Printf("status:%+v\n", resp.Status)
 	if resp.TLS != nil {
-		logger.Println("TLS Mutual:", resp.TLS.NegotiatedProtocolIsMutual)
-		logger.Println("TLS HandshakeComplete:", resp.TLS.HandshakeComplete)
+		logger.Printf("TLS Mutual:%+v\n", resp.TLS.NegotiatedProtocolIsMutual)
+		logger.Printf("TLS HandshakeComplete:%+v\n", resp.TLS.HandshakeComplete)
 	} else {
 		logger.Println("TLS is nil")
 	}
@@ -298,8 +385,8 @@ func run(w io.Writer) error {
 
 func main() {
 	switch {
-	case sub.name != "":
-		if err := sub.run(); err != nil {
+	case subcmd != nil:
+		if err := subcmd.run(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(2)
 		}
