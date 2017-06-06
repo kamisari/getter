@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.2.1"
+const version = "0.3.0"
 const logprefix = "getter "
 
 // option.conf = defconf
@@ -188,6 +188,12 @@ func init() {
 		subcmd = &subcmdGet{}
 	case "list-sub":
 		subcmd = &subcmdList{}
+	case "version":
+		if flag.NArg() == 1 {
+			opt.version = true
+			break
+		}
+		fallthrough
 	default:
 		fmt.Fprintf(os.Stderr, "invalid argument:%+v\n", flag.Args())
 		os.Exit(1)
