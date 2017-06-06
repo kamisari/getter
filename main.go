@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.3.1"
+const version = "0.3.2"
 const logprefix = "getter "
 
 // option.conf = defconf
@@ -61,7 +61,7 @@ type subcmdGetValues struct {
 
 func (sub *subcmdGetValues) init(args []string) {
 	/// subcmd GetValues
-	sub.flag = flag.NewFlagSet(strings.Join(args, " "), flag.ExitOnError)
+	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
 	sub.flag.StringVar(&sub.fpath, "file", "", "specify html file path")
 	sub.flag.StringVar(&sub.fpath, "f", "", "alias of html")
 	sub.flag.StringVar(&sub.elem, "elem", "", "specify search emlem")
@@ -103,7 +103,7 @@ type subcmdGet struct {
 
 func (sub *subcmdGet) init(args []string) {
 	/// subcmd simple Get
-	sub.flag = flag.NewFlagSet(strings.Join(args, " "), flag.ExitOnError)
+	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
 	sub.flag.StringVar(&sub.url, "url", "", "")
 	sub.flag.StringVar(&sub.out, "out", "", "")
 	sub.flag.BoolVar(&sub.log, "log", false, "")
@@ -151,7 +151,7 @@ type subcmdList struct {
 
 func (sub *subcmdList) init(args []string) {
 	sub.w = os.Stdout
-	sub.flag = flag.NewFlagSet(strings.Join(args, " "), flag.ExitOnError)
+	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
 	sub.flag.Parse(args[1:])
 	if sub.flag.NArg() != 0 {
 		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v\n", sub.flag.Args())
