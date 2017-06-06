@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.3.0"
+const version = "0.3.1"
 const logprefix = "getter "
 
 // option.conf = defconf
@@ -139,6 +139,7 @@ func (sub *subcmdGet) run() error {
 var subCommandsList = []string{
 	`get`,
 	`getvalues`,
+	`version`,
 	`list-sub`,
 }
 
