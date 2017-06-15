@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.4.0"
+const version = "0.5.0"
 const logprefix = "getter "
 
 // default discard
@@ -52,8 +52,8 @@ var subCommandsList = []string{
 	`getvalues`,
 	`version`,
 
-	// TODO: really need list-sub?
-	`list-sub`,
+	// TODO: really need sub-list?
+	`sub-list`,
 }
 
 // getvalues
@@ -68,7 +68,6 @@ type subcmdGetValues struct {
 }
 
 func (sub *subcmdGetValues) init(args []string) {
-	/// subcmd GetValues
 	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
 	sub.flag.StringVar(&sub.fpath, "file", "", "specify html file path")
 	sub.flag.StringVar(&sub.fpath, "f", "", "alias of html")
@@ -111,13 +110,12 @@ type subcmdGet struct {
 }
 
 func (sub *subcmdGet) init(args []string) {
-	/// subcmd simple Get
-	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
-	sub.flag.StringVar(&sub.url, "url", "", "")
-	sub.flag.StringVar(&sub.out, "out", "", "")
-	sub.flag.BoolVar(&sub.log, "log", false, "")
 	sub.w = os.Stdout
 	sub.logw = os.Stderr
+	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
+	sub.flag.StringVar(&sub.url, "url", "", "specify target url")
+	sub.flag.StringVar(&sub.out, "out", "", "specify output file")
+	sub.flag.BoolVar(&sub.log, "log", false, "output log of get")
 	sub.flag.Parse(args[1:])
 	if sub.flag.NArg() != 0 {
 		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v", sub.flag.Args())
@@ -234,7 +232,7 @@ type crawl struct {
 	// TODO: add logger?
 }
 
-// TODO: be graceful
+// recuresive get and save
 func (c *crawl) do() (string, error) {
 	rand.Seed(time.Now().UnixNano())
 	var value string
@@ -297,7 +295,6 @@ func (c *crawl) do() (string, error) {
 
 /// run
 
-// TODO: be graceful
 func run(w io.Writer) error {
 	if opt.version {
 		fmt.Fprintf(w, "version %s\n", version)
@@ -388,7 +385,7 @@ func init() {
 		subcmd = &subcmdGetValues{}
 	case "get":
 		subcmd = &subcmdGet{}
-	case "list-sub":
+	case "sub-list":
 		subcmd = &subcmdList{}
 	case "version":
 		if flag.NArg() == 1 {
