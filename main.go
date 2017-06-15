@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.5.0"
+const version = "0.5.1"
 const logprefix = "getter "
 
 // default discard
@@ -229,7 +229,7 @@ type crawlInfo struct {
 
 type crawl struct {
 	infos []crawlInfo
-	// TODO: add logger?
+	delay bool
 }
 
 // recuresive get and save
@@ -284,7 +284,7 @@ func (c *crawl) do() (string, error) {
 		default:
 			value = ""
 		}
-		if i+1 != len(c.infos) {
+		if c.delay && i+1 != len(c.infos) {
 			delay := time.Duration(10 + rand.Int63n(10))
 			logger.Println("delay:", delay)
 			time.Sleep(time.Second * delay)
@@ -346,7 +346,7 @@ func run(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	c := new(crawl)
+	c := &crawl{delay: true}
 	if err := json.Unmarshal(b, &c.infos); err != nil {
 		return err
 	}
@@ -365,6 +365,8 @@ type option struct {
 	logfile  string
 	template bool
 	list     bool
+
+	// add delay time.Duration?
 }
 
 var opt option
