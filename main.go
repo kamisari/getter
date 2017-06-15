@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.5.2"
+const version = "0.5.3"
 const logprefix = "getter "
 
 // default discard
@@ -70,15 +70,15 @@ type subcmdGetValues struct {
 func (sub *subcmdGetValues) init(args []string) error {
 	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
 	sub.flag.StringVar(&sub.fpath, "file", "", "specify html file path")
-	sub.flag.StringVar(&sub.fpath, "f", "", "alias of html")
-	sub.flag.StringVar(&sub.elem, "elem", "", "specify search emlem")
+	sub.flag.StringVar(&sub.fpath, "f", "", "alias of file")
+	sub.flag.StringVar(&sub.elem, "elem", "", "specify search element")
 	sub.flag.StringVar(&sub.elem, "e", "", "alias of elem")
 	sub.flag.StringVar(&sub.attr, "attr", "", "specify search attribute")
 	sub.flag.StringVar(&sub.attr, "a", "", "alias of attr")
 	sub.w = os.Stdout
 	sub.flag.Parse(args[1:])
 	if sub.flag.NArg() != 0 {
-		return fmt.Errorf("subcmd: invalid argument:%+v\n", sub.flag.Args())
+		return fmt.Errorf("subcmd: invalid argument:%+v", sub.flag.Args())
 	}
 	return nil
 }
@@ -142,6 +142,7 @@ func (sub *subcmdGet) run() error {
 	return nil
 }
 
+// output of subcmd list
 type subcmdList struct {
 	w io.Writer
 
@@ -153,7 +154,7 @@ func (sub *subcmdList) init(args []string) error {
 	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
 	sub.flag.Parse(args[1:])
 	if sub.flag.NArg() != 0 {
-		return fmt.Errorf("subcmd: invalid argument:%+v\n", sub.flag.Args())
+		return fmt.Errorf("subcmd: invalid argument:%+v", sub.flag.Args())
 	}
 	return nil
 }
