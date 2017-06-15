@@ -23,6 +23,9 @@ import (
 const version = "0.3.2"
 const logprefix = "getter "
 
+// default discard
+var logger = log.New(ioutil.Discard, logprefix, log.LstdFlags)
+
 // option.conf = defconf
 var defconf = func() string {
 	u, err := user.Current()
@@ -36,19 +39,24 @@ var defconf = func() string {
 		"conf.json")
 }()
 
-// default discard
-var logger = log.New(ioutil.Discard, logprefix, log.LstdFlags)
+/// sub commands
 
-type option struct {
-	conf     string
-	version  bool
-	logdrop  bool
-	logfile  string
-	template bool
+type subCommand interface {
+	run() error
+	init([]string)
 }
 
-var opt option
+var subcmd subCommand
+var subCommandsList = []string{
+	`get`,
+	`getvalues`,
+	`version`,
 
+	// TODO: really need list-sub?
+	`list-sub`,
+}
+
+// getvalues
 type subcmdGetValues struct {
 	w io.Writer
 
@@ -90,6 +98,7 @@ func (sub *subcmdGetValues) run() error {
 	return nil
 }
 
+// simple get
 type subcmdGet struct {
 	w    io.Writer
 	logw io.Writer
@@ -135,14 +144,6 @@ func (sub *subcmdGet) run() error {
 	return nil
 }
 
-// TODO: really need list-sub?
-var subCommandsList = []string{
-	`get`,
-	`getvalues`,
-	`version`,
-	`list-sub`,
-}
-
 type subcmdList struct {
 	w io.Writer
 
@@ -165,44 +166,7 @@ func (sub *subcmdList) run() error {
 	return nil
 }
 
-type subCommand interface {
-	run() error
-	init([]string)
-}
-
-var subcmd subCommand
-
-func init() {
-	flag.BoolVar(&opt.version, "version", false, "")
-	flag.BoolVar(&opt.logdrop, "logdrop", false, "log dropout")
-	flag.StringVar(&opt.conf, "conf", defconf, "specify path to configuration json file")
-	flag.StringVar(&opt.logfile, "logfile", "", "specify path to output log file")
-	flag.BoolVar(&opt.template, "template", false, "output template configuration json file")
-	flag.Parse()
-	if flag.NArg() == 0 {
-		return
-	}
-	switch flag.Arg(0) {
-	case "getvalues":
-		subcmd = &subcmdGetValues{}
-	case "get":
-		subcmd = &subcmdGet{}
-	case "list-sub":
-		subcmd = &subcmdList{}
-	case "version":
-		if flag.NArg() == 1 {
-			opt.version = true
-			break
-		}
-		fallthrough
-	default:
-		fmt.Fprintf(os.Stderr, "invalid argument:%+v\n", flag.Args())
-		os.Exit(1)
-	}
-	if subcmd != nil {
-		subcmd.init(flag.Args())
-	}
-}
+/// getter
 
 func getter(url string) ([]byte, error) {
 	// TODO: make flag for specify time of timeout? if need then do that
@@ -331,10 +295,17 @@ func (c *crawl) do() (string, error) {
 	return lastWrite, nil
 }
 
+/// run
+
 // TODO: be graceful
 func run(w io.Writer) error {
 	if opt.version {
 		fmt.Fprintf(w, "version %s\n", version)
+		return nil
+	}
+	if opt.list {
+		fmt.Fprintf(w, "You can get help: %s [subcmd] --help\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(w, "List Subcommands:\n\t%s\n", strings.Join(subCommandsList, "\n\t"))
 		return nil
 	}
 	if opt.template {
@@ -388,6 +359,50 @@ func run(w io.Writer) error {
 	}
 	fmt.Fprintln(w, outpath)
 	return nil
+}
+
+type option struct {
+	conf     string
+	version  bool
+	logdrop  bool
+	logfile  string
+	template bool
+	list     bool
+}
+
+var opt option
+
+func init() {
+	flag.BoolVar(&opt.version, "version", false, "")
+	flag.BoolVar(&opt.logdrop, "logdrop", false, "log dropout")
+	flag.StringVar(&opt.conf, "conf", defconf, "specify path to configuration json file")
+	flag.StringVar(&opt.logfile, "logfile", "", "specify path to output log file")
+	flag.BoolVar(&opt.template, "template", false, "output template configuration json file")
+	flag.BoolVar(&opt.list, "list", false, "list subcomamnds")
+	flag.Parse()
+	if flag.NArg() == 0 {
+		return
+	}
+	switch flag.Arg(0) {
+	case "getvalues":
+		subcmd = &subcmdGetValues{}
+	case "get":
+		subcmd = &subcmdGet{}
+	case "list-sub":
+		subcmd = &subcmdList{}
+	case "version":
+		if flag.NArg() == 1 {
+			opt.version = true
+			break
+		}
+		fallthrough
+	default:
+		fmt.Fprintf(os.Stderr, "invalid argument:%+v\n", flag.Args())
+		os.Exit(1)
+	}
+	if subcmd != nil {
+		subcmd.init(flag.Args())
+	}
 }
 
 func main() {
