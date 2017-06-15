@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.5.1"
+const version = "0.5.2"
 const logprefix = "getter "
 
 // default discard
@@ -43,7 +43,7 @@ var defconf = func() string {
 
 type subCommand interface {
 	run() error
-	init([]string)
+	init([]string) error
 }
 
 var subcmd subCommand
@@ -67,7 +67,7 @@ type subcmdGetValues struct {
 	attr  string
 }
 
-func (sub *subcmdGetValues) init(args []string) {
+func (sub *subcmdGetValues) init(args []string) error {
 	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
 	sub.flag.StringVar(&sub.fpath, "file", "", "specify html file path")
 	sub.flag.StringVar(&sub.fpath, "f", "", "alias of html")
@@ -78,9 +78,9 @@ func (sub *subcmdGetValues) init(args []string) {
 	sub.w = os.Stdout
 	sub.flag.Parse(args[1:])
 	if sub.flag.NArg() != 0 {
-		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v\n", sub.flag.Args())
-		os.Exit(2)
+		return fmt.Errorf("subcmd: invalid argument:%+v\n", sub.flag.Args())
 	}
+	return nil
 }
 func (sub *subcmdGetValues) run() error {
 	b, err := ioutil.ReadFile(sub.fpath)
@@ -109,7 +109,7 @@ type subcmdGet struct {
 	log  bool
 }
 
-func (sub *subcmdGet) init(args []string) {
+func (sub *subcmdGet) init(args []string) error {
 	sub.w = os.Stdout
 	sub.logw = os.Stderr
 	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
@@ -118,9 +118,9 @@ func (sub *subcmdGet) init(args []string) {
 	sub.flag.BoolVar(&sub.log, "log", false, "output log of get")
 	sub.flag.Parse(args[1:])
 	if sub.flag.NArg() != 0 {
-		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v", sub.flag.Args())
-		os.Exit(2)
+		return fmt.Errorf("subcmd: invalid argument:%+v", sub.flag.Args())
 	}
+	return nil
 }
 func (sub *subcmdGet) run() error {
 	if sub.log {
@@ -148,14 +148,14 @@ type subcmdList struct {
 	flag *flag.FlagSet
 }
 
-func (sub *subcmdList) init(args []string) {
+func (sub *subcmdList) init(args []string) error {
 	sub.w = os.Stdout
 	sub.flag = flag.NewFlagSet(args[0], flag.ExitOnError)
 	sub.flag.Parse(args[1:])
 	if sub.flag.NArg() != 0 {
-		fmt.Fprintf(os.Stderr, "subcmd: invalid argument:%+v\n", sub.flag.Args())
-		os.Exit(2)
+		return fmt.Errorf("subcmd: invalid argument:%+v\n", sub.flag.Args())
 	}
+	return nil
 }
 func (sub *subcmdList) run() error {
 	for _, s := range subCommandsList {
@@ -400,7 +400,10 @@ func init() {
 		os.Exit(1)
 	}
 	if subcmd != nil {
-		subcmd.init(flag.Args())
+		if err := subcmd.init(flag.Args()); err != nil {
+			fmt.Fprintf(os.Stderr, "initialize error: %+v", err)
+			os.Exit(1)
+		}
 	}
 }
 
