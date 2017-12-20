@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.5.3"
+const version = "0.5.4"
 const logprefix = "getter "
 
 // default discard
@@ -332,7 +332,8 @@ func run(w io.Writer) error {
 	case opt.logdrop:
 		logger.SetOutput(ioutil.Discard)
 	case opt.logfile != "":
-		logfile, err := os.OpenFile(opt.logfile, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
+		// override
+		logfile, err := os.Create(opt.logfile)
 		if err != nil {
 			return err
 		}
