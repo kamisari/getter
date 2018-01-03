@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.5.4"
+const version = "0.5.5"
 const logprefix = "getter "
 
 // default discard
@@ -169,7 +169,7 @@ func (sub *subcmdList) run() error {
 
 func getter(url string) ([]byte, error) {
 	// TODO: make flag for specify time of timeout? if need then do that
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
