@@ -1,5 +1,7 @@
 package main
 
+// TODO: more simple
+
 import (
 	"bytes"
 	"context"
@@ -20,7 +22,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-const version = "0.5.5"
+const version = "0.5.5dev"
 const logprefix = "getter "
 
 // default discard
